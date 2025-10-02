@@ -1,17 +1,30 @@
-const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
+// middleware/auth.js
+const { verifyToken } = require('../utils/jwt');
+const User = require('../models/User');
 
-exports.requireAuth = (req, res, next) => {
-  const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ error: 'Missing Authorization header' });
-  const parts = auth.split(' ');
-  if (parts.length !== 2) return res.status(401).json({ error: 'Invalid Authorization header' });
-  const token = parts[1];
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'Missing Authorization header' });
+  }
+
+  const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.userId = payload.sub;
+    const decoded = verifyToken(token); // throws on invalid/expired
+    // tolerate different claim names
+    const userId = decoded.userId || decoded.sub || decoded.id || decoded.uid;
+    if (!userId) return res.status(401).json({ message: 'Invalid token (no user id claim)' });
+
+    const user = await User.findById(userId).exec();
+    if (!user) return res.status(401).json({ message: 'Invalid token (user not found)' });
+
+    req.user = user;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    // Optionally log err in dev
+    console.error('requireAuth error:', err && err.message ? err.message : err);
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
-};
+}
+
+module.exports = { requireAuth };

@@ -1,9 +1,19 @@
+// routes/auth.js
 const express = require('express');
 const router = express.Router();
-const authController = require('../controllers/authController');
+const bodyParser = require('body-parser');
 
-router.post('/signup', authController.signup);
-router.post('/login', authController.login);
-router.post('/forgot-password', authController.forgotPassword);
+const { signup, login, socialLogin, me } = require('../controllers/authController');
+const { requireAuth } = require('../middleware/auth');
+
+router.use(bodyParser.json());
+
+// Public
+router.post('/signup', signup);
+router.post('/login', login);
+router.post('/social', socialLogin);
+
+// Protected
+router.get('/me', requireAuth, me);
 
 module.exports = router;
