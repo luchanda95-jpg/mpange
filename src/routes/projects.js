@@ -1,48 +1,32 @@
+// src/routes/projects.js
+
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const path = require('path');
-const auth = require('../middleware/auth');
-const Project = require('../models/Project');
 
-const uploadDir = process.env.FILE_UPLOAD_DIR || 'uploads';
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, '..', '..', uploadDir)),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g,'_')),
-});
-const upload = multer({ storage });
+// Assuming you have middleware for protecting routes (e.g., authentication)
+// const { protect } = require('../middleware/authMiddleware'); 
 
-router.get('/', async (req, res) => {
-  const list = await Project.find().populate('creatorId').sort({ createdAt: -1 }).exec();
-  res.json({ projects: list });
-});
+// Import all controller functions as a single object
+const projectsController = require('../controllers/projects');
 
-router.post('/', auth.requireAuth, upload.single('cover'), async (req, res) => {
-  try {
-    const { title, description, tags } = req.body;
-    const coverUrl = req.file ? `/${uploadDir}/` + req.file.filename : null;
-    const project = await Project.create({ title, description, coverUrl, tags: tags ? tags.split(',').map(t => t.trim()) : [], creatorId: req.userId });
-    res.json({ project });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+// Project Routes
 
-router.get('/:id', async (req, res) => {
-  const id = req.params.id;
-  const project = await Project.findById(id).exec();
-  if (!project) return res.status(404).json({ error: 'Not found' });
-  res.json({ project });
-});
+// Public route to get all projects
+router.get('/', projectsController.getProjects);
 
-router.delete('/:id', auth.requireAuth, async (req, res) => {
-  const id = req.params.id;
-  const project = await Project.findById(id);
-  if (!project) return res.status(404).json({ error: 'Not found' });
-  if (project.creatorId.toString() !== req.userId) return res.status(403).json({ error: 'Forbidden' });
-  await project.remove();
-  res.json({ ok: true });
-});
+// Public route to get projects by a specific creator (if implemented)
+// router.get('/creator/:creatorId', projectsController.getProjectsByCreator); 
+
+// Protected route to create a new project
+// If you have auth, uncomment the 'protect' middleware:
+// router.post('/', protect, projectsController.createProject);
+router.post('/', projectsController.createProject); // <--- Line 22: Calls a function
+
+// Public route to get a single project by ID
+router.get('/:id', projectsController.getProjectById);
+
+// Protected routes to update and delete
+// router.put('/:id', protect, projectsController.updateProject);
+// router.delete('/:id', protect, projectsController.deleteProject);
 
 module.exports = router;
