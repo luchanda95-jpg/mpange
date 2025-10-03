@@ -13,6 +13,33 @@ cloudinary.config({
     secure: true
 });
 
+// ------------------------------------------------------------------
+// CLOUDINARY CONNECTION/CONFIGURATION CHECK
+// Runs once at startup to confirm credentials are valid.
+// ------------------------------------------------------------------
+(async () => {
+    try {
+        // cloudinary.api.ping() is a lightweight, authenticated call 
+        // to verify credentials without affecting assets.
+        const result = await cloudinary.api.ping();
+        
+        if (result && result.status === 'ok') {
+            console.log('Connected to Cloudinary');
+            // Optional: Show the cloud name to confirm which account is active
+            console.log(`Cloud Name: ${process.env.CLOUDINARY_CLOUD_NAME}`);
+        } else {
+            // This is unlikely if the ping call returns an error object, 
+            // but catches unexpected successful return values.
+            console.error('⚠️ CLOUDINARY ERROR: Ping failed with unknown status:', result);
+        }
+    } catch (error) {
+        // This block catches authentication errors (e.g., wrong secret/key)
+        console.error('❌ FAILED to connect to Cloudinary. Check credentials in .env file.');
+        // Optionally log the detailed error message for debugging:
+        // console.error(error.message); 
+    }
+})();
+
 // Export the configured cloudinary object
 module.exports = cloudinary;
 
