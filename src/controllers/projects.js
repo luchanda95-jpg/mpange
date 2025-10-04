@@ -66,15 +66,17 @@ exports.createProject = async (req, res) => {
   }
 
   // --- CRITICAL FIX 2: Get creator ID from JWT middleware ---
-  // Assuming your JWT authentication middleware attaches the user object to req.user
-  if (!req.user || !req.user.id) {
-    // If the route is protected, this should be a 401, but we return 400
-    // if the middleware didn't run or failed to set the user.
+  // Safely retrieve the user ID, checking for both 'id' and '_id' which are common in JWT payloads.
+  const creatorId = req.user?.id || req.user?._id;
+
+  if (!creatorId) {
+    // If the ID is not present in the token payload attached to req.user, return 401.
     return res
       .status(401)
-      .json({ msg: "Not Authorized: Creator ID not found in token." });
-  }
-  const creatorId = req.user.id; // Use the ID attached by your JWT middleware // Deconstruct body fields (excluding 'creator' which comes from req.user)
+      .json({
+        msg: "Not Authorized: Creator ID (id or _id) not found in token.",
+      });
+  } // Deconstruct body fields (excluding 'creator' which comes from req.user)
 
   const {
     title,
@@ -99,7 +101,7 @@ exports.createProject = async (req, res) => {
       description,
       category,
       creatorName,
-      creator: creatorId, // <-- NOW PULLING ID FROM AUTHENTICATION
+      creator: creatorId, // <-- NOW PULLING ID FROM AUTHENTICATION (id or _id)
       tags: Array.isArray(tags) ? tags : [], // Use the extracted Cloudinary data
 
       assetPath,
