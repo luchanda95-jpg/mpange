@@ -49,7 +49,7 @@ exports.getProjectById = async (req, res) => {
 // @route   POST /api/projects
 // @access  Private (or Public, depending on your app design)
 exports.createProject = async (req, res) => {
-  // --- CRITICAL FIX: Parse JSON String Fields for 'tags' ---
+  // --- CRITICAL FIX 1: Parse JSON String Fields for 'tags' ---
   // Flutter sends the 'tags' array as a JSON string within the multipart form data.
   if (req.body.tags && typeof req.body.tags === "string") {
     try {
@@ -63,7 +63,18 @@ exports.createProject = async (req, res) => {
           msg: "Invalid format for tags array (must be a valid JSON string).",
         });
     }
-  } // Deconstruct body fields after potential modification to req.body.tags
+  }
+
+  // --- CRITICAL FIX 2: Get creator ID from JWT middleware ---
+  // Assuming your JWT authentication middleware attaches the user object to req.user
+  if (!req.user || !req.user.id) {
+    // If the route is protected, this should be a 401, but we return 400
+    // if the middleware didn't run or failed to set the user.
+    return res
+      .status(401)
+      .json({ msg: "Not Authorized: Creator ID not found in token." });
+  }
+  const creatorId = req.user.id; // Use the ID attached by your JWT middleware // Deconstruct body fields (excluding 'creator' which comes from req.user)
 
   const {
     title,
@@ -71,7 +82,6 @@ exports.createProject = async (req, res) => {
     category,
     creatorName,
     tags, // This is now the parsed array (if parsing was successful)
-    creator, // Assuming this is the ObjectId of the creator
   } = req.body; // Check if the file was uploaded successfully by the middleware
 
   if (!req.file) {
@@ -89,8 +99,9 @@ exports.createProject = async (req, res) => {
       description,
       category,
       creatorName,
-      creator, // Map to the creator field in your model
-      tags: Array.isArray(tags) ? tags : [], // Use parsed array, default to empty array // The original line was fine but we simplify it here: // tags: Array.isArray(tags) ? tags : (tags ? [tags] : []), // Use the extracted Cloudinary data
+      creator: creatorId, // <-- NOW PULLING ID FROM AUTHENTICATION
+      tags: Array.isArray(tags) ? tags : [], // Use the extracted Cloudinary data
+
       assetPath,
       assetPublicId,
       aspectRatio,
